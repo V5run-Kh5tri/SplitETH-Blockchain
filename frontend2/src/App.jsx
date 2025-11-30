@@ -271,7 +271,7 @@ const showWithdrawButton =
     // UI Start
     // --------------------------
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-400 to-purple-600 p-6 flex justify-center">
+      <div className="min-h-screen bg-purple-600 p-6 flex justify-center">
         <div className="bg-white max-w-2xl w-full p-8 rounded-2xl shadow-2xl">
 
           <h1 className="text-3xl font-bold text-indigo-500 text-center">SplitETH </h1>
@@ -286,15 +286,14 @@ const showWithdrawButton =
               Connect Wallet
             </button>
           ) : (
-            <div className="p-4 bg-gray-100 rounded-lg text-center">
+            <div className="p-4 bg-green-300 rounded-lg text-center">
               <div className="font-semibold">Connected</div>
-              <div className="text-indigo-500 text-sm font-mono">{wallet.address}</div>
               <div className="text-xs text-gray-600">Network: {wallet.networkName}</div>
             </div>
           )}
 
           {/* Contract Link */}
-          {wallet && (
+          {/*wallet && (
             <div className="mt-4 text-sm text-center bg-blue-50 p-3 rounded-lg">
               Contract:
               <a
@@ -305,13 +304,13 @@ const showWithdrawButton =
                 {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)}
               </a>
             </div>
-          )}
+          )*/}
 
           {/* Tabs */}
-          <div className="flex gap-3 mt-6">
+          <div className="flex gap-3 mt-6 ">
             <button
               onClick={() => setTab("create")}
-              className={`flex-1 py-2 rounded-lg font-semibold ${
+              className={`flex-1 py-2 rounded-lg font-semibold cursor-pointer ${
                 tab === "create" ? "bg-indigo-500 text-white" : "bg-gray-100"
               }`}
             >
@@ -319,12 +318,16 @@ const showWithdrawButton =
             </button>
             <button
               onClick={() => setTab("view")}
-              className={`flex-1 py-2 rounded-lg font-semibold ${
+              className={`flex-1 py-2 rounded-lg font-semibold cursor-pointer relative ${
                 tab === "view" ? "bg-indigo-500 text-white" : "bg-gray-100"
               }`}
             >
-              My Bills
+              My Bills 
+              <span className="inline-block bg-red-400 text-white pt-0.4 pb-0.5 px-1.5 text-[10px] rounded-xl -translate-y-1 transform ml-2">
+                {bills.length}
+              </span>
             </button>
+
           </div>
 
           {/* Status */}
@@ -349,67 +352,83 @@ const showWithdrawButton =
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-3 mt-1 mb-4 border rounded-lg"
-                placeholder="Team Dinner"
+                className="w-full p-3 mt-1 border-gray-500 border-1 rounded-lg"
+                placeholder="e.g., Team Dinner"
               />
               
-              <label className="font-semibold inline mr-5">Select Currency Type</label>
-              <select
-                value={currencyType}
-                onChange={(e) => setCurrencyType(e.target.value)}
-                placeholder="Currency Type"
-                className="bg-gray-300 rounded-xl py-1 pl-2 pr-2"
-              >
-                {Object.keys(exchangeData).map(key => {
-                  return <option key={key} value={key}>{key}</option>
-                })}
-              </select>
-              
-              <label className="font-semibold mt-4 block">Total Amount ({currencyType})</label>
-              <input
-                value={totalAmountRaw}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setTotalAmountRaw(val);
+              <label className="font-semibold mt-4 block">
+                Total Amount ({currencyType})
+              </label>
+              <div className="flex items-center gap-2 mt-1">
+                {/* SELECT DROPDOWN */}
+                <select
+                  value={currencyType}
+                  onChange={(e) => setCurrencyType(e.target.value)}
+                  className=" bg-gray-200 rounded-lg px-3 pr-6 w-18 h-12.5"
+                >
+                  {Object.keys(exchangeData).map((key) => (
+                    <option key={key} value={key}>{key}</option>
+                  ))}
+                </select>
 
-                  if (exchangeData[currencyType]) {
-                    const rate = exchangeData[currencyType];
+                {/* INPUT FIELD */}
+                <input
+                  value={totalAmountRaw}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTotalAmountRaw(val);
 
-                    const ethFloat = Number(val) / Number(rate);
+                    if (exchangeData[currencyType]) {
+                      const rate = exchangeData[currencyType];
 
-                    // 🔥 Fix: limit decimal expansion
-                    const trimmed = ethFloat.toFixed(18);
+                      const ethFloat = Number(val) / Number(rate);
+                      const trimmed = ethFloat.toFixed(18);
+                      const preciseBN = ethers.utils.parseUnits(trimmed, 18);
+                      const formatted = ethers.utils.formatUnits(preciseBN, 18);
 
-                    const preciseBN = ethers.utils.parseUnits(trimmed, 18);
+                      setTotalAmount(formatted);
+                    }
+                  }}
+                  className="flex-1 p-3 rounded-lg border border-gray-400"
+                  placeholder="1"
+                />
+              </div>
 
-                    const formatted = ethers.utils.formatUnits(preciseBN, 18);
 
-                    setTotalAmount(formatted);
-                  }
-                }}
-                className="w-full p-3 mt-1 border rounded-lg"
-                placeholder="0.1"
-              />
 
-              <label className="font-semibold mt-4 block">Total Amount (ETH)</label>
+              <label className="font-semibold mt-4 block">Converted Amount in ETH</label>
               <input
                 value={totalAmount}
-                className="w-full p-3 mt-1 border rounded-lg"
-                placeholder="0.1"
+                className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-200"
+                placeholder={1/exchangeData[currencyType]}
                 disabled
               />
 
               <label className="font-semibold mt-4 block">Participants</label>
-
               {people.map((p, i) => (
-                <input
-                  key={i}
-                  value={p}
-                  onChange={(e) => updatePerson(i, e.target.value)}
-                  className="w-full p-3 mt-2 border rounded-lg font-mono"
-                  placeholder="0x..."
-                />
+                <div key={i} className="flex items-center">
+                  
+                  <input
+                    value={p}
+                    onChange={(e) => updatePerson(i, e.target.value)}
+                    className="w-full p-3 mt-1 rounded-lg font-mono border-gray-500 border-1"
+                    placeholder="0x..."
+                  />
+
+                  <button
+                    onClick={() => {
+                      if (people.length > 1) {
+                        setPeople(people.filter((_, idx) => idx !== i));
+                      }
+                    }}
+                    className="bg-gray-100 rounded-lg ml-2 mt-1 p-2"
+                  >
+                    <img className="h-7" src="./trash.png" />
+                  </button>
+
+                </div>
               ))}
+
 
               <button
                 onClick={addPerson}
