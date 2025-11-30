@@ -39,6 +39,8 @@
 
     const [bills, setBills] = useState([]);
     const [selectedBill, setSelectedBill] = useState(null);
+    const [hasPaid, setHasPaid] = useState(false);
+    
     const [exchangeData, setExchangeData] = useState({});
 
     const [loading, setLoading] = useState(false);
@@ -193,6 +195,8 @@
 
         showStatus("Payment successful!", "success");
         openBill(billId);
+        await loadBills(); // refresh card data
+
       } catch (err) {
         console.log(err);
         showStatus("Payment failed: " + (err.reason || err.message), "error");
@@ -211,6 +215,8 @@
 
         showStatus("Withdrawn!", "success");
         openBill(billId);
+        await loadBills(); // refresh card data
+
       } catch (err) {
         console.log(err);
         showStatus("Withdrawal failed: " + (err.reason || err.message), "error");
@@ -224,6 +230,42 @@
         loadBills();
       }
     }, [wallet, contract]);
+
+    // Load payment status when a bill is selected
+useEffect(() => {
+  async function checkPaid() {
+    if (selectedBill && wallet && contract) {
+      const paid = await contract.hasPaid(selectedBill.id, wallet.address);
+      setHasPaid(paid);
+    }
+  }
+  checkPaid();
+}, [selectedBill, wallet, contract]);
+
+// Logic flags
+const isCreator =
+  selectedBill &&
+  selectedBill.data[0].toLowerCase() === wallet?.address.toLowerCase();
+
+const isParticipant =
+  selectedBill &&
+  selectedBill.data[4].some(
+    (p) => p.toLowerCase() === wallet?.address.toLowerCase()
+  );
+
+const isActive = selectedBill?.data[6];
+
+const showPayButton =
+  selectedBill &&
+  isParticipant &&
+  !hasPaid &&
+  isActive;
+
+const showWithdrawButton =
+  selectedBill &&
+  isCreator &&
+  selectedBill.data[5].gt(0); // totalPaid > 0
+
 
     // --------------------------
     // UI Start
@@ -326,27 +368,25 @@
               <label className="font-semibold mt-4 block">Total Amount ({currencyType})</label>
               <input
                 value={totalAmountRaw}
-                onChange={async (e) => {
+                onChange={(e) => {
                   const val = e.target.value;
                   setTotalAmountRaw(val);
 
                   if (exchangeData[currencyType]) {
-                    // Convert fiat → ETH using BigNumber-safe method
-                    const rate = exchangeData[currencyType];   // Example: "204523.12" INR per ETH
+                    const rate = exchangeData[currencyType];
 
-                    // Convert using JS number (allowed) but then BigNumber to fix precision
                     const ethFloat = Number(val) / Number(rate);
 
-                    // Convert float -> BigNumber (avoids floating errors)
-                    const preciseBN = ethers.utils.parseUnits(ethFloat.toString(), 18);
+                    // 🔥 Fix: limit decimal expansion
+                    const trimmed = ethFloat.toFixed(18);
 
-                    // Convert back to exact decimal string
+                    const preciseBN = ethers.utils.parseUnits(trimmed, 18);
+
                     const formatted = ethers.utils.formatUnits(preciseBN, 18);
 
                     setTotalAmount(formatted);
                   }
                 }}
-
                 className="w-full p-3 mt-1 border rounded-lg"
                 placeholder="0.1"
               />
@@ -422,7 +462,7 @@
           )}
 
           {/* BILL DETAILS */}
-          {selectedBill && (
+          {selectedBill && tab === "view" && (
             <div className="mt-6 p-4 border rounded-xl bg-gray-50">
               <button
                 onClick={() => setSelectedBill(null)}
@@ -454,22 +494,28 @@
               ))}
 
               {/* PAY BUTTON */}
-              <button
-                className="w-full mt-4 bg-green-500 text-white py-2 rounded-lg"
-                onClick={() => payShare(selectedBill.id)}
-              >
-                Pay My Share
-              </button>
+              {showPayButton && (
+                <button
+                  className="w-full mt-4 bg-green-500 text-white py-2 rounded-lg"
+                  onClick={() => payShare(selectedBill.id)}
+                >
+                  Pay My Share
+                </button>
+              )}
 
-              {/* WITHDRAW */}
-              <button
-                className="w-full mt-2 bg-orange-500 text-white py-2 rounded-lg curosr-pointer "
-                onClick={() => withdraw(selectedBill.id)}
-              >
-                Withdraw
-              </button>
+              {/* WITHDRAW BUTTON */}
+              {showWithdrawButton && (
+                <button
+                  className="w-full mt-2 bg-orange-500 text-white py-2 rounded-lg"
+                  onClick={() => withdraw(selectedBill.id)}
+                >
+                  Withdraw
+                </button>
+              )}
             </div>
           )}
+
+
         </div>
       </div>
     );
